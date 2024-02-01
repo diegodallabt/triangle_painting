@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CG - Diego Dalla B Thedoldi</title>
+    <link rel="stylesheet" type="text/css" href="css/estilo.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400&display=swap" rel="stylesheet">
+    
+</head>
+<body>
+    <div id="conteudo">
+        <canvas id="canvas" width="1000" height="800"></canvas>
+        <div id="painel">
+            <div class="sub-painel">
+                <h2>Seleção de triângulos</h2>
+                <select id="selecionarTriangulo"></select>
+                <button id="excluirTriangulo">Excluir Triângulo</button>
+                <button id="limparTela">Limpar tela</button>
+                <input type="color" id="corArestas" value="#000000">
+            </div>
+            <div class="sub-painel">
+                <h2>Seleção de vértices</h2>
+                <select id="selecionarVertice"></select>
+                <input type="color" id="corVertice" value="#000000">
+            </div>
+        </div>
+    </div>
+    <script src="canvas.js"></script>
+</body>
+</html>
