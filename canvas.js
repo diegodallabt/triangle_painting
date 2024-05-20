@@ -8,12 +8,15 @@ let limparTela = document.getElementById('limparTela');
 
 let triangulo = null;
 let triangulos = [];
+let bufferCanvas = document.createElement('canvas');
+bufferCanvas.width = canvas.width;
+bufferCanvas.height = canvas.height;
+let bufferCtx = bufferCanvas.getContext('2d');
 
-// Dá um refresh na lista de triângulos para obter as novas instâncias
+// Refresh na lista de triângulos para obter as novas instâncias
 function atualizarListaTriangulos() {
     selecionarTriangulo.innerHTML = '';
 
-    // Adiciona novas opções com base na lista de triângulos
     for (let i = 0; i < triangulos.length; i++) {
         let option = document.createElement('option');
         option.text = 'Triângulo ' + (i + 1);
@@ -22,48 +25,36 @@ function atualizarListaTriangulos() {
     }
 }
 
-// Remove o triângulo selecionado da lista
+// Exclui triângulo selecionado da lista
 excluirTrianguloBtn.addEventListener('click', function() {
     if (selecionarTriangulo.value !== '') {
-        // Remove o triângulo selecionado da lista
         triangulos.splice(selecionarTriangulo.value, 1);
 
         corVertice.value = '';
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        redrawAll();
 
-        for (let t of triangulos) {
-            desenharTriangulo(t);
-        }
-
-        // Remove o triângulo selecionado da lista de opções
         selecionarTriangulo.remove(selecionarTriangulo.selectedIndex);
-
-        // Limpa a lista de vértices
-        selecionarVertice.innerHTML = '';
         
+        selecionarVertice.innerHTML = '';
 
         atualizarListaTriangulos();
     }
 });
 
-// Limpar a tela de desenho
+// Limpa o canvas
 limparTela.addEventListener('click', function() {
-    // Limpa o canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    bufferCtx.clearRect(0, 0, bufferCanvas.width, bufferCanvas.height);
 
-    // Limpa a lista de triângulos
     triangulos = [];
 
-    // Limpa a lista de vértices
     selecionarVertice.innerHTML = '';
 
-    // Limpa o input de cor
     corVertice.value = '';
 
-    // Limpa o input de cor das arestas
     corArestas.value = '';
-    
+
     atualizarListaTriangulos();
 });
 
@@ -76,7 +67,7 @@ canvas.addEventListener('mousedown', function(event) {
     triangulo = {x: x, y: y, largura: 0, altura: 0, vertices: []};
 });
 
-// Define a forma do triângulo c/ rotação de acordo com a movimentação do mouse
+// Gera ângulos de rotação para o triângulo
 canvas.addEventListener('mousemove', function(event) {
     if (!triangulo) return;
 
@@ -94,20 +85,18 @@ canvas.addEventListener('mousemove', function(event) {
 
     // Calcula as posições dos vértices do triângulo
     triangulo.vertices = [
-        {x: triangulo.x, y: triangulo.y, cor: null},
-        {x: triangulo.x + dist * Math.cos(angulo), y: triangulo.y + dist * Math.sin(angulo), cor: null},
-        {x: triangulo.x + dist * Math.cos(angulo + Math.PI / 2), y: triangulo.y + dist * Math.sin(angulo + Math.PI / 2), cor: null}
+        {x: triangulo.x, y: triangulo.y, cor: {r: 0, g: 0, b: 0}},
+        {x: triangulo.x + dist * Math.cos(angulo), y: triangulo.y + dist * Math.sin(angulo), cor: {r: 0, g: 0, b: 0}},
+        {x: triangulo.x + dist * Math.cos(angulo + Math.PI / 2), y: triangulo.y + dist * Math.sin(angulo + Math.PI / 2), cor: {r: 0, g: 0, b: 0}}
     ];
 
+    // Redesenha a partir do buffer e adiciona o triângulo em andamento
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    for (let t of triangulos) {
-        desenharTriangulo(t);
-    }
-    desenharTriangulo(triangulo, 'Triângulo ' + (triangulos.length + 1));
+    ctx.drawImage(bufferCanvas, 0, 0);
+    desenharTriangulo(triangulo, 'Triângulo ' + (triangulos.length + 1), ctx);
 });
 
-// Adiciona o triângulo criado ao soltar o mouse à lista de triângulos com seu respectivo rótulo
+// Cria o triângulo
 canvas.addEventListener('mouseup', function(event) {
     if (!triangulo) return;
 
@@ -120,16 +109,17 @@ canvas.addEventListener('mouseup', function(event) {
     let dy = y - triangulo.y;
     let dist = Math.sqrt(dx * dx + dy * dy);
 
-    // Define a largura e a altura do triângulo
     triangulo.largura = dist;
     triangulo.altura = dist;
 
     triangulos.push(triangulo);
-    
+
     let option = document.createElement('option');
     option.text = 'Triângulo ' + triangulos.length;
     option.value = triangulos.length - 1;
     selecionarTriangulo.add(option);
+
+    redrawAll();
 
     triangulo = null;
 });
@@ -146,29 +136,23 @@ selecionarTriangulo.addEventListener('click', function() {
             selecionarVertice.appendChild(opt);
         }
     }
-
 });
 
-// Adiciona os vértices ao triângulo
 selecionarVertice.addEventListener('click', function() {
-    corVertice.value = '';
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    for (let t of triangulos) {
-        desenharTriangulo(t);
-    }
-
-    // Se um triângulo e um vértice foram selecionados, desenha um círculo na cor especificada no vértice
     if (selecionarTriangulo.value !== '' && selecionarVertice.value !== '') {
         let t = triangulos[selecionarTriangulo.value];
         let v = t.vertices[selecionarVertice.value];
+        corVertice.value = rgbToHex(v.cor.r, v.cor.g, v.cor.b);
+
+        // Redesenha a partir do buffer
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(bufferCanvas, 0, 0);
 
         let currentFillStyle = ctx.fillStyle;
 
         ctx.beginPath();
-        ctx.arc(v.x, v.y, 5, 0, 2 * Math.PI); 
-        ctx.fillStyle = v.cor || 'black';
+        ctx.arc(v.x, v.y, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = `rgb(${v.cor.r}, ${v.cor.g}, ${v.cor.b})`;
         ctx.fill();
 
         ctx.fillStyle = currentFillStyle;
@@ -180,13 +164,10 @@ corVertice.addEventListener('input', function() {
     if (selecionarTriangulo.value !== '' && selecionarVertice.value !== '') {
         let t = triangulos[selecionarTriangulo.value];
         let v = t.vertices[selecionarVertice.value];
-        v.cor = corVertice.value;
-    }
+        let novaCor = hexParaRgb(corVertice.value);
+        v.cor = novaCor;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    for (let t of triangulos) {
-        desenharTriangulo(t);
+        redrawAll();
     }
 });
 
@@ -195,154 +176,185 @@ corArestas.addEventListener('input', function() {
     if (selecionarTriangulo.value !== '') {
         let t = triangulos[selecionarTriangulo.value];
         t.corArestas = corArestas.value;
-    }
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    for (let t of triangulos) {
-        desenharTriangulo(t);
-        pintarTriangulo(t);
+        redrawAll();
     }
 });
 
-// Função principal de desenho do triângulo
-function desenharTriangulo(t, rotulo) {
-    // Desenha o triângulo
-    ctx.beginPath();
-    ctx.moveTo(t.vertices[0].x, t.vertices[0].y);
-    ctx.lineTo(t.vertices[1].x, t.vertices[1].y);
-    ctx.lineTo(t.vertices[2].x, t.vertices[2].y);
-    ctx.closePath();
-    ctx.strokeStyle = t.corArestas || 'black';
-    ctx.stroke();
+// Desenha os triângulos do buffer no canvas principal
+function redrawAll() {
+    bufferCtx.clearRect(0, 0, bufferCanvas.width, bufferCanvas.height);
+    for (let t of triangulos) {
+        desenharTriangulo(t, null, bufferCtx);
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bufferCanvas, 0, 0);
+}
+
+// Desenha os triângulos
+function desenharTriangulo(t, rotulo, context) {
+    if (t.vertices.every(v => v.cor && (v.cor.r !== 0 || v.cor.g !== 0 || v.cor.b !== 0))) {
+        pintarTriangulo(t, context);
+    }
+
+    // Desenha as arestas
+    context.beginPath();
+    context.moveTo(t.vertices[0].x, t.vertices[0].y);
+    context.lineTo(t.vertices[1].x, t.vertices[1].y);
+    context.lineTo(t.vertices[2].x, t.vertices[2].y);
+    context.closePath();
+    context.strokeStyle = t.corArestas || 'black';
+    context.lineWidth = 4;
+    context.stroke();
 
     // Desenha os vértices
     for (let v of t.vertices) {
-        let currentFillStyle = ctx.fillStyle;
+        let currentFillStyle = context.fillStyle;
 
-        ctx.beginPath();
-        ctx.arc(v.x, v.y, 5, 0, 2 * Math.PI);
-        ctx.fillStyle = v.cor || 'black';
-        ctx.fill();
+        context.beginPath();
+        context.arc(v.x, v.y, 5, 0, 2 * Math.PI);
+        context.fillStyle = `rgb(${v.cor.r}, ${v.cor.g}, ${v.cor.b})`;
+        context.fill();
 
-        ctx.fillStyle = currentFillStyle;
-    }
-
-    if(t.vertices.every(v => v.cor)){
-        pintarTriangulo(t);
+        context.fillStyle = currentFillStyle;
     }
 
     // Desenha o rótulo
-    ctx.font = '12px Arial'; 
+    context.fillStyle = 'black';
+    context.font = '12px Arial';
     if (rotulo) {
-        ctx.fillText(rotulo, t.x, t.y - 10); 
+        context.fillText(rotulo, t.x, t.y - 10);
     } else {
         let index = triangulos.indexOf(t);
         if (index !== -1) {
-            ctx.fillText('Triângulo ' + (index + 1), t.x, t.y - 10);
+            context.fillText('Triângulo ' + (index + 1), t.x, t.y - 10);
         }
     }
 }
 
-// Função de pintura dos triângulos
-function pintarTriangulo(t) {
-    if (t.vertices.every(v => v.cor)) {
-        let vertices = [...t.vertices].sort((a, b) => a.y - b.y);
-
-        let cor1 = vertices[0].cor || 'black';
-        let cor2 = vertices[1].cor || 'black';
-        let cor3 = vertices[2].cor || 'black';
-
-        let x1 = vertices[0].x;
-        let x2 = vertices[0].x;
-
-        let erro1 = 0;
-        let erro2 = 0;
-
-        // Pinta a primeira metade do triângulo
-        for (let y = vertices[0].y; y < vertices[1].y; y++) {
-            // Calcula a cor da linha atual
-            let fatorCor = (y - vertices[0].y) / (vertices[1].y - vertices[0].y);
-            let corLinha = calcularCorInterpolada(cor1, cor2, fatorCor);
-
-            pintarLinha(Math.round(x1), Math.round(x2), y, corLinha);
-
-            // Atualiza as posições x e os erros
-            erro1 += Math.abs(vertices[1].x - vertices[0].x);
-            erro2 += Math.abs(vertices[2].x - vertices[0].x);
-
-            while (erro1 >= Math.abs(vertices[1].y - vertices[0].y)) {
-                x1 += Math.sign(vertices[1].x - vertices[0].x);
-                erro1 -= Math.abs(vertices[1].y - vertices[0].y);
-            }
-
-            while (erro2 >= Math.abs(vertices[2].y - vertices[0].y)) {
-                x2 += Math.sign(vertices[2].x - vertices[0].x);
-                erro2 -= Math.abs(vertices[2].y - vertices[0].y);
-            }
-        }
-
-        // Reinicializa a posição x1 e o erro1
-        x1 = vertices[1].x;
-        erro1 = 0;
-
-        // Pinta a segunda metade do triângulo
-        for (let y = vertices[1].y; y <= vertices[2].y; y++) {
-            // Calcula a cor da linha atual
-            let fatorCor = (y - vertices[1].y) / (vertices[2].y - vertices[1].y);
-            let corLinha = calcularCorInterpolada(cor2, cor3, fatorCor);
-
-            pintarLinha(Math.round(x1), Math.round(x2), y, corLinha);
-
-            // Atualiza as posições x e os erros
-            erro1 += Math.abs(vertices[2].x - vertices[1].x);
-            erro2 += Math.abs(vertices[2].x - vertices[0].x);
-
-            while (erro1 >= Math.abs(vertices[2].y - vertices[1].y)) {
-                x1 += Math.sign(vertices[2].x - vertices[1].x);
-                erro1 -= Math.abs(vertices[2].y - vertices[1].y);
-            }
-
-            while (erro2 >= Math.abs(vertices[2].y - vertices[0].y)) {
-                x2 += Math.sign(vertices[2].x - vertices[0].x);
-                erro2 -= Math.abs(vertices[2].y - vertices[0].y);
-            }
-        }
-    }
-}
-
-// Calcula a cor interpolada entre duas cores
-function calcularCorInterpolada(cor1, cor2, fator) {
-    let rgb1 = hexParaRgb(cor1);
-    let rgb2 = hexParaRgb(cor2);
-
-    let r = rgb1.r + fator * (rgb2.r - rgb1.r);
-    let g = rgb1.g + fator * (rgb2.g - rgb1.g);
-    let b = rgb1.b + fator * (rgb2.b - rgb1.b);
-
-    return rgbParaHex(r, g, b);
-}
-
-// Pinta uma linha horizontal
-function pintarLinha(x1, x2, y, cor) {
-    ctx.beginPath();
-    ctx.moveTo(x1, y);
-    ctx.lineTo(x2, y);
-    ctx.strokeStyle = cor;
-    ctx.stroke();
-}
-
-// Funções auxiliares para converter entre os formatos hexadecimal e RGB
+// Funções auxiliares para conversão de cores
 function hexParaRgb(hex) {
-    let r = parseInt(hex.slice(1, 3), 16);
-    let g = parseInt(hex.slice(3, 5), 16);
-    let b = parseInt(hex.slice(5, 7), 16);
-    return {r: r, g: g, b: b};
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : null;
 }
 
-function rgbParaHex(r, g, b) {
-    r = Math.round(r).toString(16);
-    g = Math.round(g).toString(16);
-    b = Math.round(b).toString(16);
-    return '#' + r.padStart(2, '0') + g.padStart(2, '0') + b.padStart(2, '0');
+// Define a lista de scanlines e suas interseções
+function addScanline(triangle) {
+    const minY = Math.min(triangle.vertices[0].y, triangle.vertices[1].y, triangle.vertices[2].y);
+    const maxY = Math.max(triangle.vertices[0].y, triangle.vertices[1].y, triangle.vertices[2].y);
+    triangle.minY = minY;
+    triangle.maxY = maxY;
+
+    triangle.intersections = new Map();
+
+    for (let c = minY; c < maxY; c++) {
+        triangle.intersections.set(c, []);
+    }
+
+    criaIntersecao(triangle, 0, 1);
+    criaIntersecao(triangle, 1, 2);
+    criaIntersecao(triangle, 2, 0);
+
+    // Ordena as interseções de acordo com a coordenada x
+    triangle.intersections.forEach((xArray) => {
+        if (xArray[0].x > xArray[1].x) {
+            let temp = xArray[0];
+            xArray[0] = xArray[1];
+            xArray[1] = temp;
+        }
+        xArray[0].x = Math.ceil(xArray[0].x);
+        xArray[1].x = Math.floor(xArray[1].x);
+    });
+}
+
+// Cria as interseções para as scanlines
+function criaIntersecao(triangle, v0, v1) {
+    // Cálculo da taxa de variação para x e cores
+    const variation = (triangle.vertices[v1].x - triangle.vertices[v0].x) / (triangle.vertices[v1].y - triangle.vertices[v0].y);
+    const variationR = (triangle.vertices[v1].cor.r - triangle.vertices[v0].cor.r) / (triangle.vertices[v1].y - triangle.vertices[v0].y);
+    const variationG = (triangle.vertices[v1].cor.g - triangle.vertices[v0].cor.g) / (triangle.vertices[v1].y - triangle.vertices[v0].y);
+    const variationB = (triangle.vertices[v1].cor.b - triangle.vertices[v0].cor.b) / (triangle.vertices[v1].y - triangle.vertices[v0].y);
+
+    let initialY, endY, currentX, currentR, currentG, currentB;
+
+    if (triangle.vertices[v0].y < triangle.vertices[v1].y) {
+        initialY = triangle.vertices[v0].y;
+        endY = triangle.vertices[v1].y;
+        currentX = triangle.vertices[v0].x;
+
+        currentR = triangle.vertices[v0].cor.r;
+        currentG = triangle.vertices[v0].cor.g;
+        currentB = triangle.vertices[v0].cor.b;
+    } else {
+        initialY = triangle.vertices[v1].y;
+        endY = triangle.vertices[v0].y;
+        currentX = triangle.vertices[v1].x;
+
+        currentR = triangle.vertices[v1].cor.r;
+        currentG = triangle.vertices[v1].cor.g;
+        currentB = triangle.vertices[v1].cor.b;
+    }
+
+    for (let currentY = initialY; currentY < endY; currentY++) {
+        if (!triangle.intersections.has(currentY)) {
+            triangle.intersections.set(currentY, []);
+        }
+        triangle.intersections.get(currentY).push({ x: currentX, r: currentR, g: currentG, b: currentB });
+
+        currentX += variation;
+        currentR += variationR;
+        currentG += variationG;
+        currentB += variationB;
+    }
+}
+
+// Pinta o triângulo
+function preencheTriangulo(triangle, context) {
+    const initialY = triangle.minY;
+    const endY = triangle.maxY;
+    const intersections = triangle.intersections;
+
+    for (let currentY = initialY; currentY < endY; currentY++) {
+        const currentEdge = intersections.get(currentY);
+
+        let k = 0;
+        let firstX = currentEdge[k].x;
+        let endX = currentEdge[k + 1].x;
+
+        let currentR = currentEdge[k].r;
+        let currentG = currentEdge[k].g;
+        let currentB = currentEdge[k].b;
+
+        const variationR = (currentEdge[k + 1].r - currentEdge[k].r) / (endX - firstX);
+        const variationG = (currentEdge[k + 1].g - currentEdge[k].g) / (endX - firstX);
+        const variationB = (currentEdge[k + 1].b - currentEdge[k].b) / (endX - firstX);
+
+        for (let currentX = firstX; currentX < endX; currentX++) {
+            context.fillStyle = `rgb(${Math.round(currentR)}, ${Math.round(currentG)}, ${Math.round(currentB)})`;
+            context.fillRect(currentX, currentY, 1, 1);
+
+            currentR += variationR;
+            currentG += variationG;
+            currentB += variationB;
+        }
+    }
+}
+
+function pintarTriangulo(triangulo, context) {
+    addScanline(triangulo);
+    preencheTriangulo(triangulo, context);
+}
+
+// Funções auxiliares para conversão de cores do seletor
+function corAuxiliar(c) {
+    var hex = c.toString(16);
+    return hex.length == 1 ? "0" + hex : hex;
+}
+
+function rgbToHex(r, g, b) {
+    return "#" + corAuxiliar(r) + corAuxiliar(g) + corAuxiliar(b);
 }
